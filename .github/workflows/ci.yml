@@ -55,12 +55,13 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
         with:
-          args: >
+           args: >
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
             -Dsonar.java.binaries=api/target/classes
             -Dsonar.coverage.jacoco.xmlReportPaths=api/target/site/jacoco/jacoco.xml
             -Dsonar.qualitygate.wait=true
+            -Dsonar.coverage.exclusions=**/*.ps1,**/*.sh
 
   # 3. Image : build, Trivy, publication GHCR, SBOM (Syft), signature (Cosign keyless)
   image:
