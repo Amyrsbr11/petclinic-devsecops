@@ -1,0 +1,30 @@
+repos:
+  - repo: local
+    hooks:
+      # Hooks exécutés avec le Python local (évite les lanceurs .exe bloqués par Smart App Control)
+      - id: check-yaml
+        name: check yaml
+        entry: python -m pre_commit_hooks.check_yaml
+        language: system
+        types: [yaml]
+      - id: check-merge-conflict
+        name: check for merge conflicts
+        entry: python -m pre_commit_hooks.check_merge_conflict
+        language: system
+        types: [text]
+      - id: detect-private-key
+        name: detect private key
+        entry: python -m pre_commit_hooks.detect_private_key
+        language: system
+        types: [text]
+      - id: check-added-large-files
+        name: check for added large files
+        entry: python -m pre_commit_hooks.check_added_large_files --maxkb=1024
+        language: system
+
+      # Gitleaks dans Docker, image épinglée, scan des fichiers indexés (staged)
+      - id: gitleaks
+        name: gitleaks (secrets dans les fichiers indexés)
+        entry: docker run --rm -v .:/repo -w /repo --entrypoint sh ghcr.io/gitleaks/gitleaks:v8.24.3 -c "git config --global --add safe.directory /repo && gitleaks git --pre-commit --staged --redact -v /repo"
+        language: system
+        pass_filenames: false
