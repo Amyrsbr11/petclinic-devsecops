@@ -7,7 +7,7 @@ COPY src ./src
 RUN mvn -B -q package -DskipTests
 
 # Étape 2 : image d'exécution, utilisateur sans privilèges
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 RUN groupadd --system app \
  && useradd --system --gid app --no-create-home --shell /usr/sbin/nologin app
 WORKDIR /app
