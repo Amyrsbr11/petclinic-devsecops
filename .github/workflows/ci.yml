@@ -1,0 +1,94 @@
+name: CI/CD - petclinic
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/amyrsbr11/petclinic-api
+
+jobs:
+  # 1. Détection de secrets sur tout l'historique
+  secrets:
+    name: Secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Gitleaks (scan de tout l'historique)
+        env:
+          GITLEAKS_VERSION: 8.24.3
+        run: |
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          curl -sSfLO "$base/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfLO "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          sha256sum --check --ignore-missing "gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
+          ./gitleaks git --redact -v --exit-code 1 .
+
+  # 2. Build, tests et analyse SonarCloud
+  code:
+    name: Build, tests et SonarCloud
+    needs: secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build et tests de l'API
+        working-directory: api
+        run: mvn -B verify
+      - name: SonarCloud
+        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5.3.2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.java.binaries=api/target/classes
+            -Dsonar.coverage.jacoco.xmlReportPaths=api/target/site/jacoco/jacoco.xml
+            -Dsonar.qualitygate.wait=true
+
+  # 3. Image Docker : build, scan Trivy, publication GHCR
+  image:
+    name: Image (build, Trivy, GHCR)
+    needs: code
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build de l'image
+        run: docker build -t "$IMAGE:${{ github.sha }}" api
+      - name: Scan Trivy (bloquant sur HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+      - name: Connexion à GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publication sur GHCR
+        if: github.event_name == 'push'
+        run: docker push "$IMAGE:${{ github.sha }}"
