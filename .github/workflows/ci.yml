@@ -62,14 +62,15 @@ jobs:
             -Dsonar.coverage.jacoco.xmlReportPaths=api/target/site/jacoco/jacoco.xml
             -Dsonar.qualitygate.wait=true
 
-  # 3. Image Docker : build, scan Trivy, publication GHCR
+  # 3. Image : build, Trivy, publication GHCR, SBOM (Syft), signature (Cosign keyless)
   image:
-    name: Image (build, Trivy, GHCR)
+    name: Image (build, Trivy, GHCR, SBOM, Cosign)
     needs: code
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      id-token: write   # jeton OIDC pour la signature keyless Sigstore
     steps:
       - uses: actions/checkout@v5
       - name: Build de l'image
@@ -89,6 +90,30 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publication sur GHCR
+      - name: Publication sur GHCR (tag commit + latest)
+        id: push
         if: github.event_name == 'push'
-        run: docker push "$IMAGE:${{ github.sha }}"
+        run: |
+          docker tag "$IMAGE:${{ github.sha }}" "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+          echo "ref=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:${{ github.sha }}")" >> "$GITHUB_OUTPUT"
+      - name: SBOM de l'image (Syft)
+        if: github.event_name == 'push'
+        uses: anchore/sbom-action@dfcb83b97731532d72be422cbc51ee64adb6fd56 # v0.24.4
+        with:
+          image: ${{ steps.push.outputs.ref }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+      - name: Installation de Cosign
+        if: github.event_name == 'push'
+        uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
+        with:
+          cosign-release: 'v3.1.6'
+      - name: Signature et attestation SBOM (keyless)
+        if: github.event_name == 'push'
+        env:
+          REF: ${{ steps.push.outputs.ref }}
+        run: |
+          cosign sign --yes "$REF"
+          cosign attest --yes --type spdxjson --predicate sbom.spdx.json "$REF"
