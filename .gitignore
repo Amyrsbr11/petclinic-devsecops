@@ -1,0 +1,14 @@
+# Secrets
+.env
+*.pem
+*.key
+
+# Build
+api/target/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

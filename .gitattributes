@@ -1,0 +1,7 @@
+# Fins de ligne LF dans le dépôt (scripts exécutés dans des conteneurs Linux)
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.jar binary
