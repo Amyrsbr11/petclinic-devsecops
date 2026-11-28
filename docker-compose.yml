@@ -32,10 +32,22 @@ services:
     depends_on:
       db: { condition: service_healthy }
     networks: [backend, monitoring]
-
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports: ["127.0.0.1:9090:9090"]
+    depends_on: [api]
+    networks: [monitoring]
 networks:
   backend:
   monitoring:
 
 volumes:
   db-data:
+  prometheus-data:

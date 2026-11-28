@@ -1,0 +1,46 @@
+groups:
+  - name: petclinic-availability
+    rules:
+      - alert: PetclinicApiDown
+        expr: up{job="petclinic-api"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "API PetClinic injoignable"
+          description: "Prometheus n'arrive plus à collecter les métriques de l'API depuis plus de 30 secondes."
+
+      - alert: PetclinicHighServerErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="petclinic-api", status=~"5.."}[1m]))
+            / sum(rate(http_server_requests_seconds_count{job="petclinic-api"}[1m])) > 0.05
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taux d'erreurs 5xx supérieur à 5 %"
+          description: "Taux actuel : {{ $value | humanizePercentage }} sur la dernière minute."
+
+  - name: petclinic-security
+    rules:
+      - alert: PetclinicSuspiciousClientErrors
+        expr: sum(rate(http_server_requests_seconds_count{job="petclinic-api", status=~"4.."}[1m])) > 1
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pic de requêtes en erreur 4xx (scan ou brute force probable)"
+          description: "{{ $value | humanize }} requêtes 4xx par seconde sur la dernière minute."
+
+  - name: petclinic-resources
+    rules:
+      - alert: PetclinicHighHeapUsage
+        expr: |
+          sum(jvm_memory_used_bytes{job="petclinic-api", area="heap"})
+            / sum(jvm_memory_max_bytes{job="petclinic-api", area="heap"}) > 0.9
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mémoire heap JVM au-delà de 90 %"
+          description: "Utilisation actuelle : {{ $value | humanizePercentage }}."
