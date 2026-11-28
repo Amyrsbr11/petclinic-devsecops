@@ -3,12 +3,12 @@ groups:
     rules:
       - alert: PetclinicApiDown
         expr: up{job="petclinic-api"} == 0
-        for: 30s
+        for: 10s
         labels:
           severity: critical
         annotations:
           summary: "API PetClinic injoignable"
-          description: "Prometheus n'arrive plus à collecter les métriques de l'API depuis plus de 30 secondes."
+          description: "Prometheus n'arrive plus à collecter les métriques de l'API depuis plus de 10 secondes."
 
       - alert: PetclinicHighServerErrorRate
         expr: |

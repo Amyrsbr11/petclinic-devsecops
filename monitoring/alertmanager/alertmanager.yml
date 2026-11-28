@@ -1,0 +1,25 @@
+# Alertmanager : reçoit les alertes de Prometheus et les envoie sur Telegram.
+# Aucun secret dans ce fichier :
+#  - le token du bot est lu depuis un secret Docker (/run/secrets/telegram_bot_token) ;
+#  - __CHAT_ID__ est remplacé au démarrage par la variable TELEGRAM_CHAT_ID du fichier .env.
+route:
+  receiver: telegram
+  group_by: [alertname]
+  group_wait: 5s         # délai avant le premier envoi
+  group_interval: 30s    # délai entre deux envois pour un même groupe
+  repeat_interval: 1h    # rappel si l'alerte est toujours active
+
+receivers:
+  - name: telegram
+    telegram_configs:
+      - bot_token_file: /run/secrets/telegram_bot_token
+        chat_id: __CHAT_ID__
+        parse_mode: HTML
+        send_resolved: true    # notification aussi quand l'incident est résolu
+        message: |-
+          {{ if eq .Status "firing" }}🔥 <b>ALERTE</b>{{ else }}✅ <b>RÉSOLU</b>{{ end }} - PetClinic DevSecOps
+          {{ range .Alerts }}
+          <b>{{ .Labels.alertname }}</b> [{{ .Labels.severity }}]
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}

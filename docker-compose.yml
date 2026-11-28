@@ -42,7 +42,7 @@ services:
       - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
     ports: ["127.0.0.1:9090:9090"]
-    depends_on: [api]
+    depends_on: [api, alertmanager]
     networks: [monitoring]
 
 
@@ -62,6 +62,25 @@ services:
     depends_on: [prometheus]
     networks: [monitoring]
 
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    # Injecte le chat ID dans la configuration au démarrage, puis lance Alertmanager
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - sed "s/__CHAT_ID__/$$TELEGRAM_CHAT_ID/" /etc/alertmanager/alertmanager.yml > /tmp/alertmanager.yml && exec /bin/alertmanager --config.file=/tmp/alertmanager.yml --storage.path=/alertmanager
+    environment:
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?Définir TELEGRAM_CHAT_ID dans le fichier .env}
+    secrets: [telegram_bot_token]
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    ports: ["127.0.0.1:9093:9093"]
+    networks: [monitoring]
+
+secrets:
+  telegram_bot_token:
+    environment: TELEGRAM_BOT_TOKEN
+
 networks:
   backend:
   monitoring:
@@ -70,3 +89,4 @@ volumes:
   db-data:
   prometheus-data:
   grafana-data:
+  alertmanager-data:
