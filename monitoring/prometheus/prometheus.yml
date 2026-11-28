@@ -1,3 +1,6 @@
+# Même structure que le TP4 : un job pour l'application, un job pour Prometheus lui-même.
+# Différences : l'API est jointe par le réseau Docker interne (api:9967) et non via host.docker.internal,
+# et des règles d'alerte sont chargées.
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -6,11 +9,13 @@ rule_files:
   - /etc/prometheus/alerts.yml
 
 scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
   - job_name: petclinic-api
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ["api:9967"]
-
-  - job_name: prometheus
-    static_configs:
-      - targets: ["localhost:9090"]
+        labels:
+          application: petclinic-api

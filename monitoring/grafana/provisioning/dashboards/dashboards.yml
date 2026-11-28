@@ -1,0 +1,11 @@
+# TP4 : import manuel du dashboard Spring Boot (ID 11378).
+# Ici : tous les fichiers JSON du dossier /etc/grafana/dashboards sont chargés automatiquement.
+apiVersion: 1
+providers:
+  - name: petclinic
+    folder: PetClinic
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards
