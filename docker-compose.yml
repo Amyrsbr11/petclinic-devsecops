@@ -7,15 +7,13 @@ services:
       POSTGRES_DB: petclinic
       POSTGRES_USER: petclinic
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définir POSTGRES_PASSWORD dans le fichier .env}
-    volumes:
-      - db-data:/var/lib/postgresql/data
+    volumes: [db-data:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U petclinic -d petclinic"]
       interval: 5s
       timeout: 3s
       retries: 10
-    networks:
-      - backend
+    networks: [backend]
 
   api:
     build: ./api
@@ -25,16 +23,19 @@ services:
       POSTGRES_URL: jdbc:postgresql://db:5432/petclinic
       POSTGRES_USER: petclinic
       POSTGRES_PASS: ${POSTGRES_PASSWORD}
-    ports:
-      - "127.0.0.1:8080:9966"
+      # Actuator sur un port de management séparé, jamais publié vers l'hôte
+      MANAGEMENT_SERVER_PORT: "9967"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    ports: ["127.0.0.1:8080:9966"]   # seule l'API métier est publiée
+    expose: ["9967"]                 # métriques visibles uniquement sur les réseaux internes
     depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - backend
+      db: { condition: service_healthy }
+    networks: [backend, monitoring]
 
 networks:
   backend:
+  monitoring:
 
 volumes:
   db-data:
